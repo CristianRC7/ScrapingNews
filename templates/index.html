@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generador de Blogs con IA</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Generador de Blogs con IA</h1>
+        
+        <div class="search-section">
+            <input type="text" id="searchQuery" placeholder="Escribe el título de la noticia...">
+            <div class="limit-section">
+                <label for="limitPages">Límite de páginas:</label>
+                <input type="number" id="limitPages" value="10" min="1" max="50">
+            </div>
+            <button id="searchBtn">Buscar</button>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            Buscando...
+        </div>
+
+        <div id="results" class="results"></div>
+
+        <div id="selectedSection" style="display: none;">
+            <h3>Páginas seleccionadas: <span id="selectedCount">0</span></h3>
+            <button id="generateBtn">Generar Blog</button>
+        </div>
+
+        <div id="blogSection" style="display: none;">
+            <h2>Blog Generado</h2>
+            <div id="blogContent"></div>
+            <button id="downloadBtn">Descargar TXT</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
