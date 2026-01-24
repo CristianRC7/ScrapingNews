@@ -2,6 +2,59 @@ import requests
 from bs4 import BeautifulSoup
 import urllib.parse
 
+def extract_image_from_url(url, headers):
+    """Extrae la imagen principal de una URL"""
+    try:
+        response = requests.get(url, headers=headers, timeout=5)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Buscar Open Graph image (la más común en noticias)
+        og_image = soup.find('meta', property='og:image')
+        if og_image and og_image.get('content'):
+            return og_image['content']
+        
+        # Buscar Twitter Card image
+        twitter_image = soup.find('meta', attrs={'name': 'twitter:image'})
+        if twitter_image and twitter_image.get('content'):
+            return twitter_image['content']
+        
+        # Buscar la primera imagen en article
+        article = soup.find('article')
+        if article:
+            img = article.find('img')
+            if img and img.get('src'):
+                img_src = img['src']
+                if img_src.startswith('//'):
+                    return 'https:' + img_src
+                elif img_src.startswith('/'):
+                    from urllib.parse import urljoin
+                    return urljoin(url, img_src)
+                return img_src
+        
+        # Buscar cualquier imagen grande
+        for img in soup.find_all('img'):
+            src = img.get('src', '')
+            if src and ('width' in str(img.attrs) or 'height' in str(img.attrs)):
+                try:
+                    width = img.get('width', '0')
+                    if isinstance(width, str):
+                        width = width.replace('px', '').strip()
+                    if width and int(width) > 200:
+                        if src.startswith('//'):
+                            return 'https:' + src
+                        elif src.startswith('/'):
+                            from urllib.parse import urljoin
+                            return urljoin(url, src)
+                        return src
+                except:
+                    continue
+        
+        return None
+        
+    except Exception as e:
+        print(f"  Error extrayendo imagen: {e}")
+        return None
+
 def search_news(query, limit=10):
     results = []
     headers = {
@@ -46,11 +99,21 @@ def search_news(query, limit=10):
                             href = urllib.parse.unquote(match.group(1))
                     
                     if href and href.startswith('http'):
+                        # Intentar extraer descripción
+                        snippet = result.find('a', class_='result__snippet')
+                        description = snippet.get_text().strip() if snippet else ""
+                        
+                        # Intentar extraer imagen
+                        print(f"  Extrayendo imagen de: {title[:40]}...")
+                        image_url = extract_image_from_url(href, headers)
+                        
                         results.append({
                             'url': href,
-                            'title': title[:150]
+                            'title': title[:150],
+                            'description': description[:200],
+                            'image': image_url or 'https://via.placeholder.com/300x200?text=Sin+Imagen'
                         })
-                        print(f"✓ Encontrado: {title[:50]}...")
+                        print(f"✓ Encontrado: {title[:50]}... {'[con imagen]' if image_url else '[sin imagen]'}")
                         
                 except Exception as e:
                     print(f"Error procesando resultado: {e}")

@@ -52,10 +52,16 @@ function displayResults(results) {
         resultItem.className = 'result-item';
         resultItem.innerHTML = `
             <input type="checkbox" id="result-${index}" data-url="${result.url}">
-            <label for="result-${index}">
-                <h4>${result.title}</h4>
-                <a href="${result.url}" target="_blank">${result.url}</a>
-            </label>
+            <div class="result-image">
+                <img src="${result.image}" alt="${result.title}" onerror="this.src='https://via.placeholder.com/300x200?text=Sin+Imagen'">
+            </div>
+            <div class="result-content">
+                <label for="result-${index}">
+                    <h4>${result.title}</h4>
+                    ${result.description ? `<p class="description">${result.description}</p>` : ''}
+                    <a href="${result.url}" target="_blank" class="result-url">${result.url}</a>
+                </label>
+            </div>
         `;
         
         const checkbox = resultItem.querySelector('input[type="checkbox"]');
