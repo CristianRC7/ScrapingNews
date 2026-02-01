@@ -329,16 +329,10 @@ Deberías ver algo como:
 
 1. En la sección "⭐ Páginas de Preferencia"
 2. Escribe:
-   - **Nombre**: `Red Uno`
-   - **URL**: `https://www.reduno.com.bo/`
+   - **Nombre**: `Nombre personalizable para identificar la pagina`
+   - **URL**: `https://www.url_del_sitio.com.bo/`
 3. Click en **[+ Agregar Sitio]**
 4. Repite para más sitios (recomendado: máximo 3)
-
-**Sitios recomendados de Bolivia**:
-- Red Uno: `https://www.reduno.com.bo/`
-- El Deber: `https://eldeber.com.bo/`
-- Los Tiempos: `https://www.lostiempos.com/`
-- Página Siete: `https://www.paginasiete.bo/`
 
 #### 🔍 Buscar Noticias
 
