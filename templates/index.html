@@ -8,9 +8,30 @@
 </head>
 <body>
     <div class="container">
-        <h1>Generador de Blogs con IA</h1>
+        <h1>🤖 Generador de Blogs con IA</h1>
         
+        <!-- Sección de Páginas de Preferencia -->
+        <div class="preferred-sites-section">
+            <div class="preferred-header">
+                <h2>⭐ Páginas de Preferencia</h2>
+                <button id="togglePreferredBtn" class="toggle-btn">▼ Ocultar</button>
+            </div>
+            <p class="section-description">Agrega sitios web que quieras priorizar en las búsquedas</p>
+            
+            <div id="preferredContent" class="preferred-content">
+                <div class="add-site-form">
+                    <input type="text" id="siteName" placeholder="Nombre del sitio">
+                    <input type="text" id="siteUrl" placeholder="URL del sitio">
+                    <button id="addSiteBtn">+ Agregar Sitio</button>
+                </div>
+                
+                <div id="preferredSitesList" class="preferred-sites-list"></div>
+            </div>
+        </div>
+
+        <!-- Sección de Búsqueda -->
         <div class="search-section">
+            <h2>🔍 Buscar Noticias</h2>
             <input type="text" id="searchQuery" placeholder="Escribe el título de la noticia...">
             <div class="limit-section">
                 <label for="limitPages">Límite de páginas:</label>
@@ -20,20 +41,20 @@
         </div>
 
         <div id="loading" class="loading" style="display: none;">
-            Buscando...
+            🔄 Buscando...
         </div>
 
         <div id="results" class="results"></div>
 
         <div id="selectedSection" style="display: none;">
-            <h3>Páginas seleccionadas: <span id="selectedCount">0</span></h3>
-            <button id="generateBtn">Generar Blog</button>
+            <h3>✅ Páginas seleccionadas: <span id="selectedCount">0</span></h3>
+            <button id="generateBtn">✨ Generar Blog</button>
         </div>
 
         <div id="blogSection" style="display: none;">
-            <h2>Blog Generado</h2>
+            <h2>📝 Blog Generado</h2>
             <div id="blogContent"></div>
-            <button id="downloadBtn">Descargar TXT</button>
+            <button id="downloadBtn">💾 Descargar TXT</button>
         </div>
     </div>
 

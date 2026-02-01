@@ -17,6 +17,7 @@ def search():
     data = request.json
     query = data.get('query')
     limit = int(data.get('limit', 10))
+    preferred_sites = data.get('preferred_sites', [])  # Recibir desde frontend
     
     # Para modo manual, permitir URLs directas
     urls = data.get('manual_urls', [])
@@ -31,8 +32,8 @@ def search():
             })
         return jsonify(results)
     else:
-        # Modo búsqueda automática
-        results = search_news(query, limit)
+        # Modo búsqueda automática con sitios preferidos
+        results = search_news(query, limit, preferred_sites if preferred_sites else None)
         return jsonify(results)
 
 @app.route('/generate', methods=['POST'])
