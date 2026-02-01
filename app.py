@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify, send_file
 from scraper import search_news, scrape_content
+from prompts import get_blog_prompt
 import requests
 import json
 from io import BytesIO
@@ -17,13 +18,11 @@ def search():
     data = request.json
     query = data.get('query')
     limit = int(data.get('limit', 10))
-    preferred_sites = data.get('preferred_sites', [])  # Recibir desde frontend
+    preferred_sites = data.get('preferred_sites', [])
     
-    # Para modo manual, permitir URLs directas
     urls = data.get('manual_urls', [])
     
     if urls:
-        # Modo manual con URLs
         results = []
         for url in urls:
             results.append({
@@ -32,7 +31,6 @@ def search():
             })
         return jsonify(results)
     else:
-        # Modo búsqueda automática con sitios preferidos
         results = search_news(query, limit, preferred_sites if preferred_sites else None)
         return jsonify(results)
 
@@ -58,21 +56,9 @@ def generate_blog():
     if not contents:
         return jsonify({'success': False, 'error': 'No se pudo extraer contenido de las URLs'})
     
-    # Preparar prompt para Ollama
+    # Usar el prompt desde prompts.py
     combined_content = "\n\n---\n\n".join(contents)
-    prompt = f"""Eres un periodista profesional. Basándote ÚNICAMENTE en la siguiente información extraída de noticias, escribe un artículo de blog completo y profesional sobre "{topic}".
-
-INFORMACIÓN DE LAS NOTICIAS:
-{combined_content}
-
-INSTRUCCIONES:
-- Escribe un artículo completo con introducción, desarrollo y conclusión
-- Usa un tono profesional y periodístico
-- Estructura el contenido de manera clara
-- NO inventes información que no esté en las fuentes
-- Mínimo 500 palabras
-
-ARTÍCULO:"""
+    prompt = get_blog_prompt(topic, combined_content)
 
     print(f"\n{'='*50}")
     print("Enviando a Ollama...")

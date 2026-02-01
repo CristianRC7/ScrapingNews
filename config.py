@@ -1,4 +1,3 @@
-# config.py
 # Configuración del sistema de scraping
 
 # ====================================

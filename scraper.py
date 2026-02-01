@@ -16,12 +16,11 @@ try:
         USER_AGENTS
     )
 except ImportError:
-    # Valores por defecto si no existe config.py
-    DELAY_BETWEEN_PREFERRED_SITES = (8, 12)
-    DELAY_BEFORE_GENERAL_SEARCH = (8, 12)
+    DELAY_BETWEEN_PREFERRED_SITES = (2, 4)
+    DELAY_BEFORE_GENERAL_SEARCH = (3, 5)
     DELAY_AFTER_RATE_LIMIT = 20
     MAX_RETRIES_ON_RATE_LIMIT = 1
-    MAX_RESULTS_PER_PREFERRED_SITE = 2
+    MAX_RESULTS_PER_PREFERRED_SITE = 3
     REQUEST_TIMEOUT = 20
     CONTENT_CHAR_LIMIT = 500000
     USER_AGENTS = [
@@ -31,102 +30,107 @@ except ImportError:
     ]
 
 def get_random_user_agent():
-    """Retorna un User-Agent aleatorio para evitar detección"""
+    """Retorna un User-Agent aleatorio"""
     return random.choice(USER_AGENTS)
 
-def search_in_preferred_site(site_url, query, headers):
-    """Busca en un sitio específico - SIMPLIFICADO"""
+def search_directly_in_site(site_url, query):
+    """
+    Busca DIRECTAMENTE en el sitio web (sin DuckDuckGo)
+    Esto evita completamente el spam
+    """
     results = []
     try:
-        # Usar User-Agent aleatorio
-        headers = headers.copy()
-        headers['User-Agent'] = get_random_user_agent()
-        
-        # Extraer dominio del sitio
         from urllib.parse import urlparse
         domain = urlparse(site_url).netloc
         if not domain:
             domain = site_url
         
-        # Buscar en sitio específico
-        search_query = f"site:{domain} {query}"
-        encoded_query = urllib.parse.quote_plus(search_query)
-        url = f"https://html.duckduckgo.com/html/?q={encoded_query}"
+        # Construir URL de búsqueda del sitio (común en muchos sitios)
+        # Intentar varios formatos comunes
+        search_urls = [
+            f"{site_url}/search?q={urllib.parse.quote_plus(query)}",
+            f"{site_url}/buscar?q={urllib.parse.quote_plus(query)}",
+            f"{site_url}/?s={urllib.parse.quote_plus(query)}",
+        ]
         
-        print(f"  Buscando en {domain}...")
+        headers = {'User-Agent': get_random_user_agent()}
         
-        response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+        print(f"  Buscando directamente en {domain}...")
         
-        # Manejar código 202
-        if response.status_code == 202:
-            print(f"  ⚠️ Spam detectado (202). Esperando {DELAY_AFTER_RATE_LIMIT}s...")
-            time.sleep(DELAY_AFTER_RATE_LIMIT)
-            response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
-            if response.status_code == 202:
-                print(f"  ❌ Sitio bloqueado, saltando...")
-                return results
-        
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Buscar resultados
-            for result in soup.find_all('div', class_='result')[:MAX_RESULTS_PER_PREFERRED_SITE]:
-                try:
-                    link = result.find('a', class_='result__a')
-                    if not link:
-                        continue
+        # Intentar con cada formato de URL
+        for search_url in search_urls:
+            try:
+                response = requests.get(search_url, headers=headers, timeout=10)
+                if response.status_code == 200:
+                    soup = BeautifulSoup(response.content, 'html.parser')
                     
-                    title = link.get_text().strip()
-                    href = link.get('href', '')
+                    # Buscar enlaces que contengan el query
+                    links = soup.find_all('a', href=True)
+                    found = 0
                     
-                    # Limpiar URL
-                    if href.startswith('//'):
-                        href = 'https:' + href
-                    
-                    # Extraer URL real del redirect de DuckDuckGo
-                    if 'uddg=' in href:
-                        import re
-                        match = re.search(r'uddg=([^&]+)', href)
-                        if match:
-                            href = urllib.parse.unquote(match.group(1))
-                    
-                    if href and href.startswith('http'):
-                        snippet = result.find('a', class_='result__snippet')
-                        description = snippet.get_text().strip() if snippet else ""
+                    for link in links:
+                        if found >= MAX_RESULTS_PER_PREFERRED_SITE:
+                            break
+                        
+                        href = link.get('href', '')
+                        title = link.get_text().strip()
+                        
+                        # Validar que sea un enlace válido
+                        if not href or not title or len(title) < 10:
+                            continue
+                        
+                        # Convertir a URL absoluta
+                        if href.startswith('/'):
+                            href = site_url.rstrip('/') + href
+                        elif not href.startswith('http'):
+                            continue
+                        
+                        # Verificar que sea del mismo dominio
+                        if domain not in href:
+                            continue
                         
                         results.append({
                             'url': href,
                             'title': title[:150],
-                            'description': description[:200],
+                            'description': f"Resultado de {domain}",
                             'image': 'https://via.placeholder.com/300x200?text=Noticia',
                             'is_preferred': True
                         })
+                        found += 1
                         print(f"  ✓ {title[:40]}...")
-                        
-                except Exception as e:
-                    print(f"  Error: {e}")
-                    continue
                     
+                    if results:
+                        break  # Si encontró resultados, no seguir probando
+                        
+            except Exception as e:
+                continue
+        
+        if not results:
+            print(f"  ⚠️ No se encontraron resultados en {domain}")
+            
     except Exception as e:
-        print(f"  Error en sitio: {e}")
+        print(f"  ❌ Error: {e}")
     
     return results
 
 def search_news(query, limit=10, preferred_sites=None):
     """
-    Busca noticias priorizando sitios preferidos
-    GARANTIZA resultados generales siempre que sea posible
+    Búsqueda optimizada
+    Estrategia:
+    1. Si NO hay sitios preferidos → Solo búsqueda general
+    2. Si HAY sitios preferidos → Busca directo en esos sitios (sin DuckDuckGo) + general
     """
     all_results = []
     headers = {'User-Agent': get_random_user_agent()}
     
     print(f"\n{'='*60}")
-    print(f"INICIANDO BÚSQUEDA: '{query}' (límite: {limit})")
+    print(f"BÚSQUEDA: '{query}' (límite: {limit})")
     print(f"{'='*60}")
     
-    # 1. Buscar en sitios preferidos (SI EXISTEN)
+    # ESTRATEGIA 1: Sitios preferidos (búsqueda DIRECTA, no por DuckDuckGo)
     if preferred_sites and len(preferred_sites) > 0:
-        print(f"\n--- FASE 1: SITIOS PREFERIDOS ({len(preferred_sites)} sitios) ---\n")
+        print(f"\n--- SITIOS PREFERIDOS ({len(preferred_sites)}) ---")
+        print("Buscando directamente en cada sitio (sin intermediarios)\n")
         
         for idx, site in enumerate(preferred_sites, 1):
             site_name = site.get('name', 'Desconocido')
@@ -134,99 +138,84 @@ def search_news(query, limit=10, preferred_sites=None):
             
             print(f"[{idx}/{len(preferred_sites)}] {site_name}")
             
-            # DELAY entre sitios (no antes del primero)
+            # Delay corto entre sitios (no es DuckDuckGo, podemos ser más rápidos)
             if idx > 1:
-                delay = random.uniform(*DELAY_BETWEEN_PREFERRED_SITES)
-                print(f"    ⏱️  Esperando {delay:.1f}s...")
+                delay = random.uniform(1, 2)
+                print(f"    ⏱️ Esperando {delay:.1f}s...")
                 time.sleep(delay)
             
-            preferred_results = search_in_preferred_site(site_url, query, headers)
+            # Buscar DIRECTAMENTE en el sitio
+            preferred_results = search_directly_in_site(site_url, query)
             
-            # Agregar nombre del sitio
             for result in preferred_results:
                 result['site_name'] = site_name
             
             all_results.extend(preferred_results)
         
-        print(f"\n✓ Total preferidos: {len(all_results)} resultados")
+        print(f"\n✓ Preferidos: {len(all_results)} resultados")
     
-    # 2. SIEMPRE buscar resultados generales
-    remaining_slots = max(1, limit - len(all_results))  # Mínimo 1 resultado general
+    # ESTRATEGIA 2: Búsqueda general en DuckDuckGo
+    remaining_slots = limit - len(all_results)
     
-    print(f"\n--- FASE 2: BÚSQUEDA GENERAL ({remaining_slots} resultados) ---\n")
-    
-    # DELAY si hubo búsquedas preferidas
-    if all_results:
-        delay = random.uniform(*DELAY_BEFORE_GENERAL_SEARCH)
-        print(f"⏱️  Esperando {delay:.1f}s antes de búsqueda general...")
-        time.sleep(delay)
-    
-    try:
-        # User-Agent aleatorio
-        headers['User-Agent'] = get_random_user_agent()
+    if remaining_slots > 0:
+        print(f"\n--- BÚSQUEDA GENERAL ({remaining_slots} resultados) ---\n")
         
-        # Búsqueda general en DuckDuckGo
-        encoded_query = urllib.parse.quote_plus(query)
-        url = f"https://html.duckduckgo.com/html/?q={encoded_query}"
+        # Delay solo si hubo preferidos
+        if all_results:
+            delay = random.uniform(*DELAY_BEFORE_GENERAL_SEARCH)
+            print(f"⏱️ Esperando {delay:.1f}s...")
+            time.sleep(delay)
         
-        print(f"🔍 Buscando en DuckDuckGo...")
-        
-        response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
-        
-        # Manejar código 202
-        if response.status_code == 202:
-            print(f"⚠️  Spam detectado (202). Esperando {DELAY_AFTER_RATE_LIMIT}s...")
-            time.sleep(DELAY_AFTER_RATE_LIMIT)
-            
-            # Segundo intento
+        try:
             headers['User-Agent'] = get_random_user_agent()
+            encoded_query = urllib.parse.quote_plus(query)
+            url = f"https://html.duckduckgo.com/html/?q={encoded_query}"
+            
+            print(f"🔍 Buscando en DuckDuckGo...")
+            
             response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
             
+            # Manejar 202
             if response.status_code == 202:
-                print(f"❌ Búsqueda general bloqueada después de reintentar")
-                print(f"   Mostrando solo {len(all_results)} resultados preferidos")
-                print(f"\n{'='*60}")
-                print(f"RESUMEN: {len(all_results)} resultados totales")
-                print(f"{'='*60}\n")
-                return all_results
-        
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
+                print(f"⚠️ Rate limit (202). Esperando {DELAY_AFTER_RATE_LIMIT}s...")
+                time.sleep(DELAY_AFTER_RATE_LIMIT)
+                
+                headers['User-Agent'] = get_random_user_agent()
+                response = requests.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+                
+                if response.status_code == 202:
+                    print(f"❌ Bloqueado. Mostrando {len(all_results)} resultados")
+                    return all_results
             
-            # URLs ya encontradas
-            existing_urls = {result['url'] for result in all_results}
-            
-            general_count = 0
-            
-            # Buscar resultados
-            for result in soup.find_all('div', class_='result'):
-                if len(all_results) >= limit:
-                    break
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.text, 'html.parser')
+                existing_urls = {result['url'] for result in all_results}
+                general_count = 0
+                
+                for result in soup.find_all('div', class_='result'):
+                    if len(all_results) >= limit:
+                        break
                     
-                try:
-                    link = result.find('a', class_='result__a')
-                    if not link:
-                        continue
-                    
-                    title = link.get_text().strip()
-                    href = link.get('href', '')
-                    
-                    # Limpiar URL
-                    if href.startswith('//'):
-                        href = 'https:' + href
-                    
-                    # Extraer URL real
-                    if 'uddg=' in href:
-                        import re
-                        match = re.search(r'uddg=([^&]+)', href)
-                        if match:
-                            href = urllib.parse.unquote(match.group(1))
-                    
-                    # Evitar duplicados
-                    if href in existing_urls:
-                        continue
-                    
-                    if href and href.startswith('http'):
+                    try:
+                        link = result.find('a', class_='result__a')
+                        if not link:
+                            continue
+                        
+                        title = link.get_text().strip()
+                        href = link.get('href', '')
+                        
+                        if href.startswith('//'):
+                            href = 'https:' + href
+                        
+                        if 'uddg=' in href:
+                            import re
+                            match = re.search(r'uddg=([^&]+)', href)
+                            if match:
+                                href = urllib.parse.unquote(match.group(1))
+                        
+                        if href in existing_urls or not href.startswith('http'):
+                            continue
+                        
                         snippet = result.find('a', class_='result__snippet')
                         description = snippet.get_text().strip() if snippet else ""
                         
@@ -241,19 +230,17 @@ def search_news(query, limit=10, preferred_sites=None):
                         general_count += 1
                         print(f"  ✓ {title[:50]}...")
                         
-                except Exception as e:
-                    print(f"  Error: {e}")
-                    continue
-            
-            print(f"\n✓ Total generales: {general_count} resultados")
-            
-        else:
-            print(f"⚠️  Error {response.status_code} en búsqueda general")
-            
-    except Exception as e:
-        print(f"❌ Error en búsqueda general: {e}")
+                    except Exception as e:
+                        continue
+                
+                print(f"\n✓ Generales: {general_count} resultados")
+            else:
+                print(f"⚠️ Error {response.status_code}")
+                
+        except Exception as e:
+            print(f"❌ Error: {e}")
     
-    # Resumen final
+    # Resumen
     preferred_count = sum(1 for r in all_results if r.get('is_preferred', False))
     general_count = sum(1 for r in all_results if not r.get('is_preferred', False))
     
@@ -261,7 +248,7 @@ def search_news(query, limit=10, preferred_sites=None):
     print(f"RESUMEN:")
     print(f"  ⭐ Preferidos: {preferred_count}")
     print(f"  🌐 Generales: {general_count}")
-    print(f"  📊 TOTAL: {len(all_results)} resultados")
+    print(f"  📊 TOTAL: {len(all_results)}")
     print(f"{'='*60}\n")
     
     return all_results

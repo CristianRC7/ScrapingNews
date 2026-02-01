@@ -1,4 +1,3 @@
-// static/script.js
 let searchResults = [];
 let selectedUrls = [];
 let preferredSites = [];
@@ -18,6 +17,32 @@ document.getElementById('searchBtn').addEventListener('click', performSearch);
 document.getElementById('generateBtn').addEventListener('click', generateBlog);
 document.getElementById('downloadBtn').addEventListener('click', downloadBlog);
 document.getElementById('togglePreferredBtn').addEventListener('click', togglePreferredSection);
+
+// ====================================
+// SISTEMA DE BLOQUEO DE BOTONES
+// ====================================
+
+function disableAllButtons() {
+    const searchBtn = document.getElementById('searchBtn');
+    const generateBtn = document.getElementById('generateBtn');
+    
+    searchBtn.disabled = true;
+    searchBtn.style.opacity = '0.5';
+    
+    generateBtn.disabled = true;
+    generateBtn.style.opacity = '0.5';
+}
+
+function enableAllButtons() {
+    const searchBtn = document.getElementById('searchBtn');
+    const generateBtn = document.getElementById('generateBtn');
+    
+    searchBtn.disabled = false;
+    searchBtn.style.opacity = '1';
+    
+    generateBtn.disabled = false;
+    generateBtn.style.opacity = '1';
+}
 
 // ====================================
 // TOGGLE MOSTRAR/OCULTAR
@@ -177,7 +202,9 @@ async function performSearch() {
     
     const searchBtn = document.getElementById('searchBtn');
     const originalBtnText = searchBtn.textContent;
-    searchBtn.disabled = true;
+    
+    // BLOQUEAR TODOS LOS BOTONES
+    disableAllButtons();
     searchBtn.textContent = '🔄 Buscando...';
     searchBtn.style.cursor = 'not-allowed';
     
@@ -207,7 +234,9 @@ async function performSearch() {
         console.error('Error en búsqueda:', error);
     } finally {
         document.getElementById('loading').style.display = 'none';
-        searchBtn.disabled = false;
+        
+        // REHABILITAR TODOS LOS BOTONES
+        enableAllButtons();
         searchBtn.textContent = originalBtnText;
         searchBtn.style.cursor = 'pointer';
     }
@@ -313,9 +342,10 @@ async function generateBlog() {
     
     const query = document.getElementById('searchQuery').value;
     const generateBtn = document.getElementById('generateBtn');
-    
     const originalBtnText = generateBtn.textContent;
-    generateBtn.disabled = true;
+    
+    // BLOQUEAR TODOS LOS BOTONES
+    disableAllButtons();
     generateBtn.textContent = '⏳ Generando blog...';
     generateBtn.style.cursor = 'not-allowed';
     
@@ -344,7 +374,8 @@ async function generateBlog() {
         alert('Error: ' + error.message);
         console.error('Error en generación:', error);
     } finally {
-        generateBtn.disabled = false;
+        // REHABILITAR TODOS LOS BOTONES
+        enableAllButtons();
         generateBtn.textContent = originalBtnText;
         generateBtn.style.cursor = 'pointer';
     }
